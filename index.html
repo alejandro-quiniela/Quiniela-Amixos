@@ -597,14 +597,13 @@ header p{color:var(--muted);font-size:13px;margin-top:9px;}
 
     <!-- ESPECIALES REALES -->
     <div class="admin-section">
-      <div class="admin-title">⭐ Resultados Especiales Finales</div>
-      <div class="admin-grid4">
-        <div><div class="admin-label">Máximo Goleador</div><input class="admin-input" type="text" id="real-goleador" placeholder="Jugador..."></div>
-        <div><div class="admin-label">MVP</div><input class="admin-input" type="text" id="real-mvp" placeholder="Jugador..."></div>
-        <div><div class="admin-label">Campeón</div><input class="admin-input" type="text" id="real-campeon" placeholder="País..."></div>
-        <div><div class="admin-label">Subcampeón</div><input class="admin-input" type="text" id="real-subcampeon" placeholder="País..."></div>
-      </div>
-    </div>
+  <div class="admin-title">📸 Foto del Líder</div>
+  <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Se muestra en el podio encima del nombre del 1º.</p>
+  <input type="file" id="foto-lider-input" accept="image/*" style="display:none">
+  <button class="admin-btn" onclick="document.getElementById('foto-lider-input').click()">📸 SUBIR FOTO</button>
+  <span id="foto-lider-status" style="font-size:12px;color:var(--green);margin-left:10px"></span>
+  <div id="foto-lider-preview" style="margin-top:10px"></div>
+</div>
 
     <!-- BONUS GOLEADORES -->
     <div class="admin-section" id="admin-bonus-goleadores">
@@ -2018,18 +2017,24 @@ async function renderBonusGoleadores() {
 // =============================================
 async function renderPodio() {
   const arr = await DB.getPronosticos();
+  const esp = await DB.getEsp();
+  const fotoLider = esp._fotoLider || null;
   const sorted = [...arr].sort((a,b) => (b.puntos||0) - (a.puntos||0));
   const wrap = document.getElementById('podio-wrap');
   if (!wrap) return;
 
-  const top3 = [sorted[1], sorted[0], sorted[2]]; // 2nd, 1st, 3rd order for visual podio
+  const top3 = [sorted[1], sorted[0], sorted[2]];
   const classes = ['p2','p1','p3'];
   const medals = ['🥈','🥇','🥉'];
-  const positions = [2,1,3];
 
   wrap.innerHTML = top3.map((p, i) => {
     if (!p) return '';
+    const esPrimero = i === 1;
+    const fotoHtml = esPrimero && fotoLider
+      ? `<img src="${fotoLider}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--gold);margin-bottom:8px;box-shadow:0 0 20px rgba(255,214,0,0.4)">`
+      : '';
     return `<div class="podio-slot">
+      ${fotoHtml}
       <div class="podio-nombre">${p.nombre}</div>
       <div class="podio-pts">${p.puntos||0} pts</div>
       <div class="podio-block ${classes[i]}">${medals[i]}</div>
@@ -2037,15 +2042,20 @@ async function renderPodio() {
   }).join('');
 }
 
-document.getElementById('btn-finalizar').addEventListener('click', async () => {
-  if (!confirm('¿Mostrar el podio final a todos? Se puede desactivar después.')) return;
-  await DB.setFase('finalizado');
-  document.getElementById('btn-finalizar').style.display = 'none';
-  document.getElementById('btn-reactivar').style.display = 'block';
-  document.getElementById('fase-label').textContent = 'Finalizado';
-  document.getElementById('fase-label').style.color = 'var(--gold)';
-  await renderPodio();
-  document.getElementById('podio-overlay').style.display = 'flex';
+document.getElementById('foto-lider-input').addEventListener('change', async function() {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const base64 = e.target.result;
+    const esp = await DB.getEsp();
+    esp._fotoLider = base64;
+    await DB.setEsp(esp);
+    document.getElementById('foto-lider-status').textContent = '✅ Foto guardada';
+    document.getElementById('foto-lider-preview').innerHTML =
+      `<img src="${base64}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:2px solid var(--orange)">`;
+  };
+  reader.readAsDataURL(file);
 });
 
 document.getElementById('btn-reactivar').addEventListener('click', async () => {
